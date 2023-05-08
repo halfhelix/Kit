@@ -22,7 +22,7 @@ function readConfigFiles() {
   }, {})
 
   if (fs.existsSync(defaults['path.webpack'])) {
-    config.webpack = require(defaults['path.webpack'])
+    config._webpack = require(defaults['path.webpack'])
   }
 
   return config
@@ -59,7 +59,10 @@ module.exports = async (options) => {
     config.themes[options.env],
     options,
     options.isDeveloper ? await getDeveloperTheme() : {},
-    emitter
+    emitter,
+    {
+      'runtime.npmPrefix': await utils.getNPMPrefix()
+    }
   )
   return defaults
 }

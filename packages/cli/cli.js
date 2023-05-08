@@ -6,6 +6,7 @@ const pkg = require('./package.json')
 const webpacker = require('@halfhelix/webpacker')
 const configure = require('@halfhelix/configure')
 const { developerThemeService } = require('@halfhelix/shopify-kit')
+const { scaffoldTheme } = require('@halfhelix/shopify-kit')
 const { gitlab, github } = require('@halfhelix/gitlab-kit')
 const { splash, epilogue, error } = require('@halfhelix/terminal-kit')
 const {
@@ -30,7 +31,7 @@ program
   .version(pkg.version)
   .arguments('<cmd>')
   .usage(
-    '[watch|build|deploy|lint|gitlab|critical|theme <command>]|sync-back-to-source-repo'
+    '[scaffold|watch|build|deploy|lint|gitlab|critical|theme <command>]|sync-back-to-source-repo'
   )
   .option('-e --env [env]', 'specify an environment')
   .option('-u --upload [upload]', 'upload specific file in critical command')
@@ -123,6 +124,12 @@ new Promise(async (resolve) => {
 
     if (typeof options.open !== 'undefined') {
       commandLineOptions['bs.open'] = options.open
+    }
+
+    if (~['scaffold'].indexOf(command)) {
+      await scaffoldTheme()
+      epilogue()
+      return
     }
 
     const settings = await configure(commandLineOptions)

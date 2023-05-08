@@ -72,6 +72,42 @@ STORE={shopify-store}.myshopify.com
 
 See [**Getting Started / Connecting To Shopify**](/docs/getting-started/#setup-your-connection-to-shopify) for details on how to setup the minimum recommended variables as you see above.
 
+## package.json
+
+Here's an example of a basic package.json file with necessary dependencies. Note that these dependencies went through a major update as we moved from `v1.*` to `v2.*` Webpack was moved to `v5.*` and we updated the sass compiler to be a theme dependency rather than a Kit dependency.
+
+```json
+{
+  "private": true,
+  "scripts": {
+    "start": "npm run watch",
+    "watch": "kit watch --env development",
+    "build": "kit build --env production",
+    "deploy": "kit deploy --env production",
+    "lint": "kit lint",
+    "lint:js": "kit lint --include js",
+    "lint:css": "kit lint --include css",
+    "lint:whitespace": "eclint check **/*.liquid",
+    "lint:whitespace:fix": "eclint fix **/*.liquid"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "postcss": "8.4.12",
+    "stylelint": "14.6.1",
+    "@babel/core": "^7.7.7",
+    "@babel/plugin-proposal-object-rest-spread": "^7.7.7",
+    "@babel/plugin-proposal-optional-chaining": "^7.13.12",
+    "@babel/preset-env": "^7.7.7",
+    "eclint": "^2.8.1",
+    "eslint-config-standard": "^14.1.0",
+    "node-sass": "^7.0.1",
+    "standard": "^14.3.1",
+    "stylelint-config-standard-scss": "^3.0.0",
+    "webpack-bundle-analyzer": "^3.6.0"
+  }
+}
+```
+
 ## webpack.config.js
 
 Webpack configurations can vary per project but here is an example of a common boilerplate.
@@ -80,6 +116,7 @@ Webpack configurations can vary per project but here is an example of a common b
 - The module.rule for `/\.s?css$/` includes an "extract" property that tells Kit to extract the CSS into it's own file at build time. Keep this here and follow this example as a general rule.
 - Devtool will be removed when running build and deployment in production (this can be overridden via settings).
 - `chunkFilename` includes a version string to cache bust upon deployments.
+- As of `v2.*` of Kit, this file can export a function rather than an object, with `webpack` being passed in as the only argument of the function. This allows you to tap into the same `webpack` package managed within Kit.
 
 ```js
 const path = require('path')
@@ -114,6 +151,7 @@ module.exports = {
           {
             loader: 'css-loader',
             options: {
+              url: false,
               importLoaders: 1,
               sourceMap: true
             }
@@ -121,7 +159,8 @@ module.exports = {
           {
             loader: 'sass-loader',
             options: {
-              sourceMap: true
+              sourceMap: true,
+              implementation: require('node-sass')
             }
           }
         ]
@@ -129,6 +168,9 @@ module.exports = {
     ]
   }
 }
+
+// Alternatively, as of v2.*
+module.exports = webpack => ({ ... })
 ```
 
 ## .eslintrc.js

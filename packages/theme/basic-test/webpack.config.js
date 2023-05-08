@@ -16,7 +16,10 @@ module.exports = {
         enforce: 'pre',
         test: /\.js$/,
         exclude: /node_modules/,
-        loader: 'eslint-loader'
+        loader: 'eslint-loader',
+        options: {
+          fix: true
+        }
       },
       {
         test: /\.js$/,
@@ -24,12 +27,12 @@ module.exports = {
       },
       {
         test: /\.s?css$/,
-        extract: true,
         use: [
           'style-loader',
           {
             loader: 'css-loader',
             options: {
+              url: false,
               importLoaders: 1,
               sourceMap: true
             }
@@ -37,7 +40,8 @@ module.exports = {
           {
             loader: 'sass-loader',
             options: {
-              sourceMap: true
+              sourceMap: true,
+              implementation: require('node-sass')
             }
           }
         ]

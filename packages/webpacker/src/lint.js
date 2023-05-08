@@ -1,7 +1,6 @@
 const eslint = require('eslint')
-const stylelint = require('stylelint')
-const fs = require('fs-extra')
 const { completedAction } = require('@halfhelix/terminal-kit')
+const { preferThemeNodeModuleFolder } = require('./utils')
 
 module.exports = ({ fix, include }, settings) => {
   return Promise.all([
@@ -39,7 +38,8 @@ const lintJavascript = (fix, settings) => {
 }
 
 const lintCSS = (fix, settings) => {
-  return stylelint
+  // Allow stylelint to be within the package node_modules folder
+  return require(preferThemeNodeModuleFolder('/stylelint', settings))
     .lint({
       fix,
       configBasedir: settings['path.cwd'],

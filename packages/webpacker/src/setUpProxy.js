@@ -14,7 +14,6 @@ let WDMisReady = false
 function makeConfig(webpack, settings, watchCallback) {
   const wdm = WDM(webpack, {
     publicPath: settings['path.public'],
-    noInfo: true,
     stats: 'errors-warnings',
     headers: {
       'Access-Control-Allow-Origin': '*'
@@ -101,7 +100,7 @@ module.exports = (webpack, settings, watchCallback) => {
     spinner = action('Rebuilding bundle')
   })
   wdm.context.compiler.hooks.done.tap('kit', () => {
-    spinner.succeed()
+    spinner && spinner.succeed()
   })
 
   return new Promise((resolve, reject) => {

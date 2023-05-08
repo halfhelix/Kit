@@ -2,7 +2,6 @@ module.exports = {
   ...require('./defaults/path'),
   ...require('./defaults/git'),
   ...require('./defaults/themeName'),
-  ...require('./defaults/cypress'),
   ...require('./defaults/css'),
   ...require('./defaults/debug'),
   ...require('./defaults/browserSync'),

@@ -1,78 +1,36 @@
-const path = require('path')
 const webpack = require('webpack')
-const MinifyPlugin = require('babel-minify-webpack-plugin')
-const ExtractTextPlugin = require('extract-text-webpack-plugin')
+const MiniCssExtractPlugin = require('mini-css-extract-plugin')
 const StyleLintPlugin = require('stylelint-webpack-plugin')
-const DynamicPublicPathPlugin = require('dynamic-public-path-webpack-plugin')
 const autoprefixer = require('autoprefixer')
-const fs = require('fs-extra')
 const cloneDeep = require('lodash.clonedeep')
 
-function getThemeNodeModulesDir(suffix = '') {
-  return `${settings['path.cwd']}/node_modules${suffix}`
-}
-
-function getEnv(settings) {
-  return settings.env === 'development' ? 'development' : 'production'
-}
+const {
+  getEnv,
+  getPackageNodeModulesDir,
+  preferThemeNodeModuleFolder,
+  matchLoader,
+  isCSSModuleLoaderRule,
+  findAndOptionallyCleanseLoader
+} = require('./utils')
 
 /**
- * First, checks the existence of a child node modules
- * package. Then, for global packages, checks the closets
- * parent node modules directory.
+ * Sets 'devtool' to false if the 'watch'
+ * command is running which is the flag to
+ * determine if the developer is in development.
  */
-function getNodeModulesDir(suffix = '') {
-  const possibleChild = path.resolve(__dirname, `../node_modules${suffix}`)
-  if (fs.existsSync(possibleChild)) {
-    return possibleChild
-  }
-  const splitParent = __dirname.split('node_modules')
-  splitParent.pop()
-  const possibleParent =
-    splitParent.join('node_modules') + `node_modules${suffix}`
-  if (fs.existsSync(possibleParent)) {
-    return possibleParent
-  }
-  return ''
-}
-
-function resolveNodeModule(suffix = '') {
-  const localDir = getNodeModulesDir(suffix)
-  return fs.existsSync(localDir) ? localDir : getThemeNodeModulesDir(suffix)
-}
-
-const matchLoader = (name) => (loaderRule) => {
-  if (typeof loaderRule === 'string') {
-    return ~loaderRule.indexOf(name)
-  }
-
-  return ~loaderRule.loader.indexOf(name)
-}
-
-function findAndCleanseLoader(rule, name, cleanse = true) {
-  if (rule.loader === name) {
-    cleanse && delete rule.loader
-    return true
-  }
-
-  const isInUse = (rule.use || []).findIndex(matchLoader(name))
-
-  if (~isInUse) {
-    cleanse && rule.use.splice(isInUse, 1)
-    return true
-  }
-
-  return false
-}
-
 function prepareDevtool(settings) {
   if (settings.task !== 'watch') {
-    return ''
+    return false
   } else {
     return settings.webpack.devtool
   }
 }
 
+/**
+ * Adds in the settings['path.hmr'] setting if
+ * in development and removes all but css if we
+ * are running the 'critical' task.
+ */
 function prepareEntry(settings) {
   const { entry } = settings.webpack
 
@@ -81,7 +39,7 @@ function prepareEntry(settings) {
   }
 
   if (typeof entry === 'string') {
-    return mutateEntry([entry], settings)
+    return _mutateEntry([entry], settings)
   }
 
   return Object.keys(entry).reduce((obj, key) => {
@@ -90,12 +48,12 @@ function prepareEntry(settings) {
     } else {
       obj[key] = entry[key]
     }
-    obj[key] = mutateEntry(obj[key], settings)
+    obj[key] = _mutateEntry(obj[key], settings)
     return obj
   }, {})
 }
 
-function mutateEntry(entry, settings) {
+function _mutateEntry(entry, settings) {
   if (settings.task === 'watch') {
     entry.push(settings['path.hmr'])
   }
@@ -107,27 +65,55 @@ function mutateEntry(entry, settings) {
   return entry
 }
 
+/**
+ * Handles the 'output' property of the config file
+ */
 function prepareOutput(settings) {
   return Object.assign({}, settings.webpack.output, {
     publicPath: settings['path.public']
   })
 }
 
+/**
+ * Handles the 'resolve' property of the config file.
+ * Here we tell webpack where to look for packages in:
+ * essentially within the context of the project, in the
+ * context of @kit or in the the global NPM node_modules
+ * folder.
+ */
 function prepareResolve(settings) {
   return Object.assign(
     {
-      modules: [getNodeModulesDir(), 'node_modules']
+      modules: [getPackageNodeModulesDir('', settings), 'node_modules']
     },
     settings.webpack.resolve || {}
   )
 }
 
-function prepareResolveLoader() {
+/**
+ * Handles the 'resolveLoader' property of the config file.
+ *
+ * Here we tell webpack where to look for packages in:
+ * essentially within the context of the project, in the
+ * context of @kit or in the the global NPM node_modules
+ * folder.
+ */
+function prepareResolveLoader(settings) {
   return {
-    modules: [getNodeModulesDir(), 'node_modules']
+    modules: [getPackageNodeModulesDir('', settings), 'node_modules']
   }
 }
 
+/**
+ * We iterate through all of the module rules
+ * and mutate then accordingly to the functions below.
+ *
+ * We do this to handle JS and CSS inline with the
+ * opinions of this package - with the intention of
+ * taking a lot of the setup pain points away from
+ * project setup (and standardizing the approach across
+ * many projects).
+ */
 function prepareModule(settings) {
   const webpackModules = cloneDeep(settings.webpack.module)
 
@@ -146,10 +132,11 @@ function prepareModule(settings) {
 }
 
 function _addCSSExtractPlugin(rule, settings) {
-  let { extract, use } = rule
+  if (!isCSSModuleLoaderRule(rule)) {
+    return
+  }
 
-  if (!extract) return
-  delete rule.extract
+  let { use } = rule
 
   if (settings.task === 'watch') {
     return
@@ -162,37 +149,34 @@ function _addCSSExtractPlugin(rule, settings) {
     throw new Error('webpack.module.rules.use must have a min length of 2')
   }
 
-  rule.use = ExtractTextPlugin.extract({
-    fallback: use[0],
-    use: use.splice(1)
-  })
+  rule.use = [MiniCssExtractPlugin.loader, ...use]
 }
 
 function _addEslintConfig(rule, settings) {
-  if (!findAndCleanseLoader(rule, 'eslint-loader')) {
+  if (!findAndOptionallyCleanseLoader(rule, 'eslint-loader')) {
     return
   }
-  rule.loader = resolveNodeModule('/eslint-loader')
+  rule.loader = preferThemeNodeModuleFolder('/eslint-loader', settings)
   rule.options = {
-    eslintPath: resolveNodeModule('/eslint'),
+    eslintPath: preferThemeNodeModuleFolder('/eslint', settings),
     ...(rule.options || {})
   }
 }
 
 function _addCustomJsLoaders(rule, settings) {
-  if (!findAndCleanseLoader(rule, 'babel-loader')) {
+  if (!findAndOptionallyCleanseLoader(rule, 'babel-loader')) {
     return
   }
   rule.use = [
     {
-      loader: resolveNodeModule('/babel-loader'),
+      loader: preferThemeNodeModuleFolder('/babel-loader', settings),
       options: {
         ...settings.babel,
         ...(rule.options || {})
       }
     },
     {
-      loader: resolveNodeModule('/@halfhelix/glob-loader'),
+      loader: getPackageNodeModulesDir('/@halfhelix/glob-loader', settings),
       options: {
         'path.src': settings['path.src'],
         autoChunk: settings['js.autoChunk'],
@@ -204,12 +188,21 @@ function _addCustomJsLoaders(rule, settings) {
 }
 
 function _addCustomStyleLoaders(rule, settings) {
-  if (!findAndCleanseLoader(rule, 'style-loader', false)) {
+  if (!isCSSModuleLoaderRule(rule)) {
     return
   }
 
+  // extract is no longer necessary to have
+  // on the rule as a flag so just delete it
+  // if it exists.
+  typeof rule.extract && delete rule.extract
+
+  if (settings.task !== 'watch') {
+    findAndOptionallyCleanseLoader(rule, 'style-loader')
+  }
+
   rule.use.push({
-    loader: resolveNodeModule('/@halfhelix/glob-loader'),
+    loader: getPackageNodeModulesDir('/@halfhelix/glob-loader', settings),
     options: {
       'path.src': settings['path.src'],
       sortFunction: settings['js.chunkSortFunction']
@@ -223,18 +216,23 @@ function _addCustomStyleLoaders(rule, settings) {
   if (~sassIndex()) {
     if (settings['shopify.addShopifyLoader'] && settings.task === 'watch') {
       rule.use.splice(sassIndex(), 0, {
-        loader: resolveNodeModule('/@halfhelix/shopify-loader'),
+        loader: getPackageNodeModulesDir(
+          '/@halfhelix/shopify-loader',
+          settings
+        ),
         options: {
           'path.cdn': settings['path.cdn']
         }
       })
     }
+
     if (settings['css.autoprefixInWatch'] || settings.task !== 'watch') {
       rule.use.splice(sassIndex(), 0, {
-        loader: resolveNodeModule('/postcss-loader'),
+        loader: getPackageNodeModulesDir('/postcss-loader', settings),
         options: {
-          ident: 'postcss',
-          plugins: [autoprefixer]
+          postcssOptions: {
+            plugins: [autoprefixer]
+          }
         }
       })
     }
@@ -247,18 +245,21 @@ function _addCustomStyleLoaders(rule, settings) {
         set.loader
       )
     ) {
-      set.loader = resolveNodeModule(`/${set.loader}`)
+      set.loader = preferThemeNodeModuleFolder(`/${set.loader}`, settings)
     }
   })
 }
 
+/**
+ * Handles the "plugins" property of the config.
+ */
 function preparePlugins(settings) {
   return [
     ...(settings.webpack.plugins || []),
     ...(settings['css.lintStyles']
       ? [
           new StyleLintPlugin({
-            stylelintPath: resolveNodeModule('/stylelint'),
+            stylelintPath: preferThemeNodeModuleFolder('/stylelint', settings),
             files: settings['css.stylelintPaths'](settings)
           })
         ]
@@ -266,8 +267,9 @@ function preparePlugins(settings) {
     ...(settings.task === 'watch'
       ? [new webpack.SourceMapDevToolPlugin()]
       : [
-          new ExtractTextPlugin(settings['css.mainFileName']),
-          new MinifyPlugin()
+          new MiniCssExtractPlugin({
+            filename: settings['css.mainFileName']
+          })
         ]),
     ...(settings.task === 'watch' && settings['js.hmr']
       ? [new webpack.HotModuleReplacementPlugin()]
@@ -277,25 +279,27 @@ function preparePlugins(settings) {
       'process.env.NODE_ENV': JSON.stringify(getEnv(settings)),
       DEBUG: getEnv(settings) === 'development',
       KIT_VERSION: JSON.stringify(settings.package.version)
-    }),
-    ...(settings.task !== 'watch'
-      ? [
-          ...Object.keys(settings.webpack.entry).map((name) => {
-            return new DynamicPublicPathPlugin({
-              externalGlobal: settings['shopify.cdnPathVar'],
-              chunkName: name
-            })
-          })
-        ]
-      : [])
+    })
   ]
 }
 
+/**
+ * Handles the "external" property of the config. Essentially
+ * passes them through.
+ *
+ * @max I am not convinced this is necessary the
+ * ...remaining line below.
+ */
 function prepareExternals(settings) {
   return Object.assign({}, settings.webpack.externals)
 }
 
 module.exports = (settings) => {
+  settings.webpack =
+    typeof settings._webpack === 'function'
+      ? settings._webpack(webpack)
+      : settings._webpack
+
   const {
     devtool,
     entry,
@@ -321,13 +325,12 @@ module.exports = (settings) => {
     plugins: preparePlugins(settings),
     externals: prepareExternals(settings),
     module: prepareModule(settings),
-    stats: settings['js.filterWebpackStats']('none', settings),
-    performance: settings['js.filterWebpackPerformance'](
-      {
-        hints: false
-      },
-      settings
-    ),
+    output: {
+      publicPath: 'auto'
+    },
+    infrastructureLogging: {
+      level: 'none'
+    },
     ...remaining
   }
 

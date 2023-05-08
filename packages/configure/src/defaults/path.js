@@ -1,10 +1,13 @@
 const path = require('path')
+const fs = require('fs-extra')
 
 const { CWD } = require('./../constants')
 
 module.exports = {
   // package.json location for the project
-  package: require(path.normalize(`${CWD}/package.json`)),
+  package: fs.existsSync(path.normalize(`${CWD}/package.json`))
+    ? require(path.normalize(`${CWD}/package.json`))
+    : {},
   // The "kit.config.js" file location (accepts an array)
   'path.config': [path.normalize(`${CWD}/kit.config.js`)],
   // The root of the project

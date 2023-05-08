@@ -39,6 +39,14 @@ const getUsername = () => {
   })
 }
 
+const getNPMPrefix = () => {
+  return new Promise((resolve) => {
+    exec('npm config get prefix', (err, stdout, stderr) => {
+      resolve(stdout.trim())
+    })
+  })
+}
+
 const pathExists = (fileOrDir) => {
   return fs.pathExistsSync(fileOrDir)
 }
@@ -86,6 +94,7 @@ module.exports = {
   getDate,
   getBranch,
   getUsername,
+  getNPMPrefix,
   pathExists,
   movePath,
   copyPath,

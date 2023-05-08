@@ -1,4 +1,5 @@
 module.exports = {
+  debug: false,
   themes: {
     development: {
       theme: process.env.THEME_ID,
@@ -33,5 +34,6 @@ module.exports = {
         JSON.stringify(files)
       )
     }
-  }
+  },
+  'bs.reloadDelay': 1500
 }

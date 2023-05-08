@@ -14,7 +14,7 @@ const {
   color,
   completedAction
 } = require('@halfhelix/terminal-kit')
-const config = require('./src/webpack.config')
+const config = require('./src/generateWebpackConfig')
 const setUpProxy = require('./src/setUpProxy')
 const lint = require('./src/lint')
 const { interceptConsole, resetConsole, getLogs } = require('./src/console')
@@ -60,18 +60,23 @@ async function compileWithWebpack(settings) {
   if (settings['debug.bypassWebpack']) {
     return Promise.resolve([])
   }
+
   const spinner = action('Compiling assets with Webpack')
   !settings.quick && (await wait(1000))
 
   return new Promise((resolve, reject) => {
-    interceptConsole()
-    webpack(config(settings)).run(async (error, stats) => {
+    !settings.debug && interceptConsole()
+
+    const compiler = webpack(config(settings))
+
+    compiler.run(async (error, stats) => {
       if (settings['debug.writeWebpackOutputToFile']) {
         writeToLogFile(stats, settings)
       }
 
-      resetConsole(false)
+      !settings.debug && resetConsole(false)
       spinner.succeed()
+
       const hasErrors = webpackHasErrors(error, stats)
       if (hasErrors) {
         return reject(hasErrors)
@@ -80,10 +85,16 @@ async function compileWithWebpack(settings) {
       webpackResponse(stats, settings)
       !settings.quick && (await wait(1000))
 
-      const files = getCompiledFilePaths(stats)
-      resolve(files, settings)
+      compiler.close((_error) => {
+        // https://webpack.js.org/api/node/#close-watching
+        // Not clear on what type of error would be returned
+        // as part of this call.
+        _error && console.log(_error)
+        resolve(getCompiledFilePaths(stats), settings)
+      })
     })
   }).catch((e) => {
+    console.log(e)
     error(e, true, true)
     return Promise.resolve(false)
   })

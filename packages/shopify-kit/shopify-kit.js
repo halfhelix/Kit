@@ -17,6 +17,7 @@ const sync = require('./services/assetUpload')
 const chunkStylesheets = require('./services/stylesheetChunking')
 const renameTheme = require('./services/themeNaming')
 const developerThemeService = require('./services/developerThemes')
+const scaffoldTheme = require('./services/scaffoldTheme')
 const { isProductionTheme, getTheme } = require('./services/util')
 
 /**
@@ -347,5 +348,6 @@ module.exports = {
   deployFile,
   chunkStylesheets,
   developerThemeService,
-  filterOutIgnoredFiles
+  filterOutIgnoredFiles,
+  scaffoldTheme
 }

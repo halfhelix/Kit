@@ -28,7 +28,7 @@ test('Config is correctly configured in staging', async (t) => {
     env: 'staging'
   })
   t.true(stub.getCall(0).args[0].mode === 'production')
-  t.true(stub.getCall(0).args[0].devtool === '')
+  t.true(stub.getCall(0).args[0].devtool === false)
 })
 
 test('Config is correctly configured in production', async (t) => {
@@ -38,7 +38,7 @@ test('Config is correctly configured in production', async (t) => {
     env: 'production'
   })
   t.true(stub.getCall(0).args[0].mode === 'production')
-  t.true(stub.getCall(0).args[0].devtool === '')
+  t.true(stub.getCall(0).args[0].devtool === false)
 })
 
 test('Plugins are correctly set in in production', async (t) => {
@@ -52,15 +52,14 @@ test('Plugins are correctly set in in production', async (t) => {
   t.true(
     [
       'stylelint-webpack-plugin',
-      'extract-text-webpack-plugin',
-      'babel-minify-webpack-plugin',
+      '', // MiniCssExtractPlugin with no "name" property
       'NoEmitOnErrorsPlugin',
-      'DefinePlugin',
-      'dynamic-public-path-webpack-plugin'
+      'DefinePlugin'
     ].every((name, index) => {
-      return !!~plugins[index].name.indexOf(name)
+      return !!~(plugins[index].name || '').indexOf(name)
     })
   )
+  t.is(plugins[1].options.filename, '[name].min.css.liquid')
 })
 
 test('Plugins are correctly set in watch command', async (t) => {

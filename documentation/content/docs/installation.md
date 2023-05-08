@@ -31,21 +31,12 @@ yarn global add @halfhelix/kit
 
 After that run `kit --version` to verify that the tool is working.
 
-## Installation troubleshooting
+## Spinning up a theme and getting going
 
-In order to install this package we write to the local computer directory that is set to store NPM global packages, and we do install Node Sass (at least until we release a new version using Dart Sass). If there is an issue with permissions for this global directory, or issues with Sass having been built for another version of Node, issues may arise in the installation process.
+This command is really simple, it adds default theme files into the current folder so that you can get going quickly and understand the framework within the context of a Shopify theme. After running this command, you should be able to get going after running `yarn` and creating an `.env` file based on the `.env.example` file.
 
-### Node Sass binding issues
-
-If you run into an error relating to Node Sass about non-compatible binaries "Node Sass could not find a binding for your current environment: OS X 64-bit with Node.js" you may need to rebuild node-sass from within the kit node_modules folder:
+> This command was added in `v2.0.0`
 
 ```bash
-# For Mac OSX Users
-cd "$(npm root -g)/@halfhelix/kit" && npm rebuild node-sass;
+kit scaffold
 ```
-
-_Note: Its on our roadmap to release a new version with Dart Sass support since [Node Sass is now deprecated](https://www.npmjs.com/package/node-sass)._
-
-### Permission issues
-
-See [this link](https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally) on resolving permission issues when installing global packages.

@@ -94,6 +94,9 @@ addHook(
                 return ${JSON.stringify(webpackResponse)}
               }
             })
+          },
+          close (callback) {
+            callback()
           }
         }
       }
