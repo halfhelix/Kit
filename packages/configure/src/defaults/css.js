@@ -63,7 +63,7 @@ module.exports = {
   'css.chunk.updateOriginalFile': true,
   // The rendered Liquid of the fallback remaining unchunked, non-critical CSS
   'css.chunk.defaultCSSInclude'(fileName, settings) {
-    return `{{ '${fileName}' | asset_url | stylesheet_tag }}`
+    return `{{ '${fileName}' | asset_url | stylesheet_tag: preload: true }}`
   },
   // Break the CSS into critical and non-critical blocks
   'css.chunk.critical'(settings) {
